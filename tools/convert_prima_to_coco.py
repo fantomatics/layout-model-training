@@ -130,6 +130,7 @@ class PRIMADataset():
     def find_all_annotation_files(self):
         return glob(os.path.join(self.anno_path, '*.xml'))
     
+    # TODO FIX enumerating empty ids (without files) 
     def find_all_image_ids(self):
         replacer = lambda s: os.path.basename(s).replace('pc-', '').replace('.xml', '')
         return [replacer(s) for s in self.find_all_annotation_files()]
@@ -138,7 +139,7 @@ class PRIMADataset():
         
         image_id = self._ids[idx]
         
-        image_path = os.path.join(self.image_path, f'{image_id}.tif')
+        image_path = os.path.join(self.image_path, f'{image_id}.jpg')
         image = Image.open(image_path)
         
         anno = self.load_annotation(idx)
@@ -167,23 +168,27 @@ class PRIMADataset():
             
             # We use the idx as the image id
             
-            image_path = os.path.join(self.image_path, f'{image_id}.tif')
-            image_info = _image_template(idx, image_path)
-            all_image_infos.append(image_info)
+            image_path = os.path.join(self.image_path, f'{image_id}.jpg')
             
-            anno = self.load_annotation(idx)
+            try:
+                image_info = _image_template(idx, image_path)        
+                all_image_infos.append(image_info)
+            
+                anno = self.load_annotation(idx)
 
-            for item in anno.find_all(re.compile(".*Region")):
+                for item in anno.find_all(re.compile(".*Region")):
                 
-                pts = cvt_coords_to_array(item.Coords)
-                if 0 not in pts.shape:
-                    # Sometimes there will be polygons with less
-                    # than 4 edges, and they could not be appropriately 
-                    # handled by the COCO format. So we just drop them. 
-                    if pts.shape[0] >= 4:
-                        anno_info = _anno_template(anno_id, idx, pts, item.name)
-                        all_anno_infos.append(anno_info)
-                        anno_id += 1
+                    pts = cvt_coords_to_array(item.Coords)
+                    if 0 not in pts.shape:
+                        # Sometimes there will be polygons with less
+                        # than 4 edges, and they could not be appropriately 
+                        # handled by the COCO format. So we just drop them. 
+                        if pts.shape[0] >= 4:
+                            anno_info = _anno_template(anno_id, idx, pts, item.name)
+                            all_anno_infos.append(anno_info)
+                            anno_id += 1
+            except Exception as Ex:
+                pass
         
             
         final_annotation = {
